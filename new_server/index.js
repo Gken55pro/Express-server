@@ -25,6 +25,7 @@ const VerifiedTransactions = require("./models/verifiedPayment");
 const Message = require("./models/message");
 const path = require("path");
 const fs = require("fs");
+const { error } = require("console");
 
 
 // we define app
@@ -60,6 +61,14 @@ const connectToDb = async ()=>{
 // invoke the function
 connectToDb();
 
+// sample update
+app.get("/sample_get", (req, res)=>{
+    try{
+        res.status(200).json({message: "update is okay"})
+    }catch(err){
+        res.status(400).json({error: "error"})
+    }
+});
 
 // Auth API's user
 
@@ -182,18 +191,21 @@ const upload = multer({storage: storage});
 app.get("/check_user", async(req, res)=>{
     try{
         const token = req.cookies.JWT;
-        const auth = await jwt.verify(token, process.env.JWT_SECRET_KEY, async(err, decodedToken)=>{
-            if(!err){
-                const { _id } = await User.findOne({_id: new ObjectId(decodedToken.id)})
-                return({_id: _id})
-            }
-        }); 
-        if(auth){
-        const { _id } = auth;
-        res.status(200).json({id: _id});
-        }
+        if(token){
+            const auth = await jwt.verify(token, process.env.JWT_SECRET_KEY, async(err, decodedToken)=>{
+                if(!err){
+                    const { _id } = await User.findOne({_id: new ObjectId(decodedToken.id)})
+                    return({_id: _id})
+                }
+            }); 
+            if(auth){
+                const { _id } = auth;
+                res.status(200).json({id: _id});
+            }else throw Error("error");
+        }else throw Error("error");
 
     }catch(err){
+        console.log(err)
         res.status(400).json({error: "Not logged in"})
     }
 })
@@ -212,7 +224,7 @@ app.post("/sign_up", async(req, res)=>{
         .then(()=>{return(true)})
         .catch(()=>{return(false)});
         if(sendEmail){
-          res.cookie("JWT", token, {maxAge: maxAge * 1000}).status(200).json({message: "Signup successful !", user: _id});
+          res.cookie("JWT", token, {maxAge: maxAge * 1000, httpOnly: true, secure: true, sameSite: true}).status(200).json({message: "Signup successful !", user: _id});
         }
     }catch(err){
         const error = await HandleError(err, duplicate);
@@ -228,7 +240,7 @@ app.post("/login", async(req, res)=>{
         const auth = await userAuth(email, password);
         const { _id } = auth;
         const { token } = await createToken(_id, maxAge); 
-        res.cookie("JWT", token, {maxAge: maxAge * 1000}).status(200).json({message: "Login successful !", user: _id});
+        res.cookie("JWT", token, {maxAge: maxAge * 1000, httpOnly: true, secure: true, sameSite: true}).status(200).json({message: "Login successful !", user: _id});
     }catch(err){
         const error = await HandleError(err);
         res.status(400).json({errorMessage: "Login failed !", error: error})
@@ -239,7 +251,7 @@ app.post("/login", async(req, res)=>{
 // log_out
 app.get("/log_out", (req, res)=>{
     try{
-    res.cookie("JWT", "", {maxAge: 1000}).status(200).json({message: "Logout successful !"});
+    res.cookie("JWT", "", {maxAge: 1000, httpOnly: true, secure: true, sameSite: true}).status(200).json({message: "Logout successful !"});
     }catch(err){
         res.status(400).json({errorMessage: "Logout failed !"})
     }
@@ -474,15 +486,17 @@ const AdminAuth = async(email, password)=>{
 app.get('/check_admin', async(req, res)=>{
     try{
         const token = req.cookies.Admin_Token;
-        const auth = await jwt.verify(token, process.env.JWT_SECRET_KEY, async(err, decodedToken)=>{
-            if(!err){
-                const { _id } = await Admin.findOne({_id: new ObjectId(decodedToken)});
-                return(_id)
-            }
-        });
-        if(auth){
-        res.status(200).json({id: auth});
-        }else throw Error("error")
+        if(token){
+            const auth = await jwt.verify(token, process.env.JWT_SECRET_KEY, async(err, decodedToken)=>{
+                if(!err){
+                    const { _id } = await Admin.findOne({_id: new ObjectId(decodedToken)});
+                    return(_id)
+                }
+            });
+            if(auth){
+            res.status(200).json({id: auth});
+            }else throw Error("error");
+        }else throw Error("error");
     }catch(err){
         res.status(400).json({error: "Not logged in", url: "/admin_login"});
     }
@@ -500,7 +514,7 @@ app.post('/create_admin', async(req, res)=>{
         const createAdmin = await Admin.create({name, email, password: hashedPassword, image, address, phoneNumber, status: status, date});
         const { _id } = createAdmin;
         const { token } = await createToken(_id, maxAge);
-        res.cookie("Admin_Token", token, {maxAge: maxAge * 1000}).status(200).json({message: "Account creation successful", url: "/admin_page"})
+        res.cookie("Admin_Token", token, {maxAge: maxAge * 1000, httpOnly: true, secure: true, sameSite: true}).status(200).json({message: "Account creation successful", url: "/admin_page"})
     }catch(err){
         const error = await HandleAdminError(err, validateEmail, status);
         res.status(400).json(error);
@@ -513,7 +527,7 @@ app.post('/login_admin', async(req, res)=>{
         const { email, password } = req.body;
         const { _id } = await AdminAuth(email, password);
         const { token } = await createToken(_id, maxAge);
-        res.cookie("Admin_Token", token, {maxAge: maxAge * 1000}).status(200).json({message: "Login successful", url: "/admin_page"})
+        res.cookie("Admin_Token", token, {maxAge: maxAge * 1000, httpOnly: true, secure: true, sameSite: true}).status(200).json({message: "Login successful", url: "/admin_page"})
     }catch(err){
         console.log(err)
         const error = await HandleAdminError(err);
