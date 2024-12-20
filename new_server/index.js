@@ -26,6 +26,7 @@ const Message = require("./models/message");
 const path = require("path");
 const fs = require("fs");
 const { error } = require("console");
+const { message } = require("statuses");
 
 
 // we define app
@@ -205,7 +206,6 @@ app.get("/check_user", async(req, res)=>{
         }else throw Error("error");
 
     }catch(err){
-        console.log(err)
         res.status(400).json({error: "Not logged in"})
     }
 })
@@ -391,11 +391,29 @@ app.patch("/upload_profile_image/:id", upload.single("user_image"), async(req, r
         const filename = req.file.originalname;
         const isUploaded = await User.updateOne({_id: new ObjectId(id)}, {$set: {image: filename}});
         if(isUploaded){
-            res.status(400).json({message:"Image uploaded successfully"})
+            res.status(200).json({message:"Image uploaded successfully"})
         }
     }catch(err){
         console.log(err)
         res.status(400).json({error:"Could not upload image"});
+    };
+});
+
+// delete profile image
+app.delete("/delete_profile_image/:id", async(req, res)=>{
+    try{
+        const { id } = req.params;
+        const { image } = await User.findOne({_id: new ObjectId(id)});
+        const action = await User.updateOne({_id: new ObjectId(id)}, {$set: {image: "No image"}});
+        const deleteFile = fs.unlinkSync(`./public/${image}`, (err)=>{
+            console.log(err)
+        });
+        if(action){
+            res.status(200).json({message:"Image deleted successfully"})
+        }
+    }catch(err){
+        console.log(err)
+        res.status(400).json({error:"Could not delete image"});
     };
 });
 
@@ -592,6 +610,25 @@ app.delete('/delete_admin/:id', async(req, res)=>{
 
 // products
 
+// search values
+app.get("/search_values", async(req, res)=>{
+    try{
+        const Data = [];
+        const action = await Product.find({}, (err, data)=>{
+            if(data){
+                data.forEach((product)=>{
+                    Data.push(product.name);
+                });
+            };
+        });
+        if(action){
+            res.status(200).json(Data);
+        };
+    }catch(err){
+        res.status(400).json({error: "Could not import search values"});
+    }
+});
+
 // fetch single product
 app.get("/products/:id", async(req, res)=>{
     try{
@@ -760,6 +797,20 @@ app.patch('/remove_product_review/:id', async(req, res)=>{
     }catch(err){
         res.status(400).json({error: "Could not remove review"})
     }
+});
+
+app.patch("/update_product_review/:id", async(req, res)=>{
+    try{
+        const { id } = req.params;
+        const { oldData, newData } = req.body;
+        const pullOld = await Product.updateOne({_id: new ObjectId(id)}, {$pull: {reviews: oldData}});
+        const pushNew = await Product.updateOne({_id: new ObjectId(id)}, {$push: {reviews: newData}});
+        if(pullOld && pushNew){
+            res.status(200).json({message: "Review updated succesfully"});
+        };
+    }catch(err){
+        res.status(400).json({error: "Could not update review"});
+    };
 });
 
 // update product rating
@@ -1420,5 +1471,17 @@ app.patch("/delete_general_message/:id", async(req, res)=>{
         };
     }catch(err){
         res.status(400).json({error: "Failed to delete message"});
+    };
+});
+
+// command
+app.get("/get/:id", async(req, res)=>{
+    try{
+        const { id } = req.params;
+        const data = {_id: id, name: "George Kenedy", rating: 4.5, date:"17/4/2024", reviewBody: "Lorem ipsum dolor, sit amet consectetur adipisicing elit. Dolorem dolores nesciunt quisquam maiores incidunt repudiandae vero rem, autem quod asperiores deserunt, dolorum at commodi recusandae aliquam dolor voluptatum, maxime obcaecati."}
+        const action = await Product.updateOne({_id: new ObjectId("6745bb485fc9b56745697a91")}, {$push: {reviews: data}});
+        res.status(200).json({message: "Successful"})
+    }catch(err){
+        res.status(400).json({error: "failed"})
     };
 });

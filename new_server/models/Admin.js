@@ -7,12 +7,12 @@ const mongooseSchema = new mongoose.Schema({
     },
     email: {
         type: String, 
-        required: [true, "email is reqired"],
+        required: [true, "email is required"],
         lowercase: true
     },
     password: {
         type: String, 
-        required: [true, "password is reqired"],
+        required: [true, "password is required"],
         minLenght: [6]
     },
     image: {type: String},
